@@ -28,6 +28,7 @@ pub mod pi_cli;
 mod pi_config;
 mod pi_discovery;
 mod pi_events;
+pub mod qmd_cli;
 pub mod search;
 pub mod settings;
 pub mod telemetry;
@@ -553,6 +554,10 @@ macro_rules! app_invoke_handler {
             commands::search_vault,
             commands::create_empty_vault,
             commands::create_getting_started_vault,
+            commands::scaffold_memory_vault,
+            commands::qmd_status,
+            commands::qmd_memory_query,
+            commands::qmd_update_index,
             commands::check_vault_exists,
             commands::get_default_vault_path,
             commands::register_mcp_tools,

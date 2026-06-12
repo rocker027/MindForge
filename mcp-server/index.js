@@ -12,6 +12,9 @@
  *   - open_note: signal Tolaria UI to open a note as a tab
  *   - highlight_editor: visually highlight a UI element (editor, tab, etc.)
  *   - refresh_vault: trigger vault rescan so new/modified files appear
+ *   - memory_recall: recall pages from the memory vault (qmd or keyword fallback)
+ *   - memory_ingest: capture material into the memory vault raw/inbox/
+ *   - memory_log: append an entry to the memory vault wiki/log.md
  */
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
@@ -20,6 +23,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import WebSocket from 'ws'
+import { LOG_KINDS } from './memory.js'
 import { createMcpToolService } from './tool-service.js'
 
 const WS_UI_PORT = parseInt(process.env.WS_UI_PORT || '9711', 10)
@@ -213,6 +217,46 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: 'memory_recall',
+    description: 'Recall relevant pages from the shared memory vault. Uses qmd hybrid retrieval when installed and falls back to keyword search otherwise.',
+    annotations: LOCAL_READ_ONLY_TOOL_ANNOTATIONS,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'What to recall from memory' },
+        limit: { type: 'number', description: 'Maximum number of results (default: 10)' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'memory_ingest',
+    description: 'Capture new material into the memory vault raw/inbox/ for later wiki ingestion, and append a capture entry to wiki/log.md.',
+    annotations: LOCAL_CREATE_TOOL_ANNOTATIONS,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        content: { type: 'string', description: 'Full markdown body of the captured material' },
+        title: { type: 'string', description: 'Short human-readable title for the capture' },
+        source: { type: 'string', description: 'Optional origin of the material (URL, tool, conversation)' },
+      },
+      required: ['content', 'title'],
+    },
+  },
+  {
+    name: 'memory_log',
+    description: 'Append an activity entry to the memory vault wiki/log.md. The log is append-only history; entries are never rewritten.',
+    annotations: LOCAL_CREATE_TOOL_ANNOTATIONS,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        entry: { type: 'string', description: 'One-line description of the activity' },
+        kind: { type: 'string', enum: [...LOG_KINDS], description: 'Activity kind for the log prefix' },
+      },
+      required: ['entry', 'kind'],
+    },
+  },
 ]
 
 async function handleSearchNotes(args) {
@@ -264,6 +308,21 @@ function handleRefreshVault(args) {
   return { content: [{ type: 'text', text: 'Vault refresh triggered' }] }
 }
 
+async function handleMemoryRecall(args) {
+  const recall = await toolService.memoryRecall(args)
+  return { content: [{ type: 'text', text: JSON.stringify(recall, null, 2) }] }
+}
+
+async function handleMemoryIngest(args) {
+  const result = await toolService.memoryIngest(args)
+  return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+}
+
+async function handleMemoryLog(args) {
+  const result = await toolService.memoryLog(args)
+  return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+}
+
 const TOOL_HANDLERS = new Map([
   ['search_notes', handleSearchNotes],
   ['get_vault_context', handleVaultContext],
@@ -273,6 +332,9 @@ const TOOL_HANDLERS = new Map([
   ['open_note', handleOpenNote],
   ['highlight_editor', handleHighlightEditor],
   ['refresh_vault', handleRefreshVault],
+  ['memory_recall', handleMemoryRecall],
+  ['memory_ingest', handleMemoryIngest],
+  ['memory_log', handleMemoryLog],
 ])
 
 function callToolHandler(name, args) {

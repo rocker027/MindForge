@@ -512,11 +512,13 @@ Tolaria's app chrome uses an app-owned localization runtime in `src/lib/i18n.ts`
 Persisted at `~/.config/com.tolaria.app/vaults.json` (reads legacy `com.laputa.app` on upgrade):
 ```json
 {
-  "vaults": [{ "label": "My Vault", "path": "/path/to/vault" }],
+  "vaults": [{ "label": "My Vault", "path": "/path/to/vault", "kind": "notes" }],
   "active_vault": "/path/to/vault",
   "hidden_defaults": []
 }
 ```
+
+Each vault entry carries a `kind` (`"notes"` for regular vaults, `"memory"` for LLM memory vaults with the `raw/` + `wiki/` structure from ADR-0140). Entries persisted before the field existed deserialize as `"notes"`.
 
 Managed by `useVaultSwitcher` hook. Switching vaults resets sidebar and clears the active note.
 
@@ -763,6 +765,7 @@ The vault backend (`src-tauri/src/vault/`) is split into focused submodules:
 | `check_vault_exists` | Check if vault path exists |
 | `create_empty_vault` | Create a git-backed vault, then seed root `AGENTS.md`, `CLAUDE.md`, `type.md`, and `note.md` defaults |
 | `create_getting_started_vault` | Clone the public Getting Started vault, refresh Tolaria-managed guidance/config defaults, and keep the cloned repo clean |
+| `scaffold_memory_vault` | Scaffold an LLM memory vault (`raw/` + `wiki/` + `AGENTS.md` schema) from the compile-time embedded template, `git init` if needed, and register it as a mounted `kind: "memory"` workspace; idempotent — existing files, repos, and registrations are skipped |
 | `get_vault_ai_guidance_status` | Report whether `AGENTS.md`, `CLAUDE.md`, and optional `GEMINI.md` guidance are managed, missing, broken, or custom |
 | `restore_vault_ai_guidance` | Restore any missing/broken Tolaria-managed guidance files without overwriting custom ones |
 

@@ -7,7 +7,16 @@ use crate::commands::expand_tilde;
 const APP_CONFIG_DIR: &str = "com.tolaria.app";
 const LEGACY_APP_CONFIG_DIR: &str = "com.laputa.app";
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+/// Workspace kind for regular note vaults.
+pub const NOTES_VAULT_KIND: &str = "notes";
+/// Workspace kind for LLM memory vaults (raw/ + wiki/ structure).
+pub const MEMORY_VAULT_KIND: &str = "memory";
+
+fn default_vault_kind() -> String {
+    NOTES_VAULT_KIND.to_string()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VaultEntry {
     pub label: String,
     pub path: String,
@@ -22,6 +31,25 @@ pub struct VaultEntry {
     pub icon: Option<String>,
     #[serde(default)]
     pub mounted: Option<bool>,
+    /// Either "notes" or "memory"; entries persisted before this field
+    /// existed deserialize as "notes".
+    #[serde(default = "default_vault_kind")]
+    pub kind: String,
+}
+
+impl Default for VaultEntry {
+    fn default() -> Self {
+        Self {
+            label: String::new(),
+            path: String::new(),
+            alias: None,
+            short_label: None,
+            color: None,
+            icon: None,
+            mounted: None,
+            kind: default_vault_kind(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -246,6 +274,7 @@ mod tests {
                 color: Some("green".to_string()),
                 icon: Some("briefcase".to_string()),
                 mounted: Some(false),
+                ..Default::default()
             }],
             active_vault: Some("/tmp/personal".to_string()),
             default_workspace_path: Some("/tmp/team".to_string()),
@@ -297,5 +326,39 @@ mod tests {
         fs::write(&path, r#"{"vaults":[],"active_vault":null}"#).unwrap();
         let loaded = load_at(&path).unwrap();
         assert!(loaded.hidden_defaults.is_empty());
+    }
+
+    #[test]
+    fn load_legacy_vault_entry_without_kind_defaults_to_notes() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("legacy.json");
+        // Simulate old format where vault entries have no kind field
+        fs::write(
+            &path,
+            r#"{"vaults":[{"label":"Old","path":"/tmp/old"}],"active_vault":null}"#,
+        )
+        .unwrap();
+        let loaded = load_at(&path).unwrap();
+        assert_eq!(loaded.vaults[0].kind, NOTES_VAULT_KIND);
+    }
+
+    #[test]
+    fn default_vault_entry_kind_is_notes() {
+        assert_eq!(VaultEntry::default().kind, NOTES_VAULT_KIND);
+    }
+
+    #[test]
+    fn memory_vault_kind_roundtrip() {
+        let list = VaultList {
+            vaults: vec![VaultEntry {
+                label: "Memory".to_string(),
+                path: "/tmp/memory-vault".to_string(),
+                kind: MEMORY_VAULT_KIND.to_string(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let loaded = save_and_reload(&list);
+        assert_eq!(loaded.vaults[0].kind, MEMORY_VAULT_KIND);
     }
 }

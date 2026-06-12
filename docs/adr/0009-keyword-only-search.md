@@ -2,8 +2,9 @@
 type: ADR
 id: "0009"
 title: "Keyword-only search (remove semantic indexing)"
-status: active
+status: superseded
 date: 2026-03-24
+superseded_by: "0141"
 ---
 
 ## Context

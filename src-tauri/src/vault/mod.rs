@@ -487,6 +487,9 @@ pub fn scan_vault_folders(vault_path: &Path) -> Result<Vec<FolderNode>, String> 
 #[path = "frontmatter_regression_tests.rs"]
 mod frontmatter_regression_tests;
 #[cfg(test)]
+#[path = "memory_vault_template_tests.rs"]
+mod memory_vault_template_tests;
+#[cfg(test)]
 #[path = "modified_dates_tests.rs"]
 mod modified_dates_tests;
 #[cfg(test)]

@@ -3,16 +3,20 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { createMemoryService } from './memory.js'
 import { createMcpToolService } from './tool-service.js'
 
 let tmpDir
 let firstVault
 let secondVault
+let memoryVault
 
 beforeEach(async () => {
   tmpDir = await mkdtemp(path.join(os.tmpdir(), 'tolaria-mcp-service-'))
   firstVault = path.join(tmpDir, 'First Vault')
   secondVault = path.join(tmpDir, 'Second Vault')
+  memoryVault = path.join(tmpDir, 'Memory Vault')
+  await mkdir(memoryVault, { recursive: true })
 
   await seedVault(firstVault, {
     'note/shared.md': noteFixture('Shared Note', 'Shared content from the first vault.'),
@@ -132,14 +136,63 @@ describe('createMcpToolService', () => {
       { action: 'vault_changed', payload: { path: path.join(secondVault, 'note/beta.md') } },
     ])
   })
+
+  it('routes memory writes through the memory service and emits vault refreshes', async () => {
+    const emittedActions = []
+    const service = makeService({ emittedActions })
+
+    const ingest = await service.memoryIngest({ content: 'Captured fact.', title: 'Memory Note' })
+    const logged = await service.memoryLog({ entry: 'Reviewed wiki', kind: 'lint' })
+    const recall = await service.memoryRecall({ query: 'Captured fact' })
+
+    assert.equal(ingest.path, 'raw/inbox/memory-note.md')
+    assert.equal(recall.engine, 'keyword')
+    assert.deepEqual(recall.results.map(result => result.path), ['raw/inbox/memory-note.md'])
+    assert.deepEqual(emittedActions, [
+      { action: 'vault_changed', payload: { path: ingest.absolutePath } },
+      { action: 'vault_changed', payload: { path: logged.absolutePath } },
+    ])
+  })
+
+  it('adds the memory protocol to vault context only when a memory vault is mounted', async () => {
+    const service = makeService()
+
+    const ctx = await service.vaultContext({ vaultPath: firstVault })
+
+    assert.equal(ctx.memoryProtocol.memoryVaultPath, memoryVault)
+    assert.equal(ctx.memoryProtocol.schemaPath, path.join(memoryVault, 'AGENTS.md'))
+    assert.match(ctx.memoryProtocol.summary, /memory_recall/)
+    assert.match(ctx.memoryProtocol.summary, /memory_ingest/)
+    assert.match(ctx.memoryProtocol.summary, /memory_log/)
+  })
+
+  it('keeps vault context working when the memory service is broken', async () => {
+    const service = makeService({
+      memoryService: {
+        memoryVaultPath: () => {
+          throw new Error('broken vaults.json')
+        },
+      },
+    })
+
+    const ctx = await service.vaultContext({ vaultPath: firstVault })
+
+    assert.equal('memoryProtocol' in ctx, false)
+  })
 })
 
-function makeService({ emittedActions = [] } = {}) {
+function makeService({ emittedActions = [], memoryService } = {}) {
   return createMcpToolService({
     resolveVaultPaths: () => [firstVault, secondVault],
     emitUiAction: (action, payload) => {
       emittedActions.push({ action, payload })
     },
+    memoryService: memoryService ?? createMemoryService({
+      resolveMemoryVaultPath: () => memoryVault,
+      runQmdQuery: async () => {
+        throw new Error('qmd: command not found')
+      },
+    }),
   })
 }
 

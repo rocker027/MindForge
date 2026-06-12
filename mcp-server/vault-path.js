@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir, platform } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 
 const APP_CONFIG_DIR = 'com.tolaria.app'
 const LEGACY_APP_CONFIG_DIR = 'com.laputa.app'
@@ -68,6 +68,40 @@ export function configuredVaultPaths({ configDir } = {}) {
   if (!existsSync(filePath)) return []
 
   return activeVaultPathsFromList(JSON.parse(readFileSync(filePath, 'utf-8')))
+}
+
+function memoryVaultPathFromList(list) {
+  for (const vault of list?.vaults ?? []) {
+    if (vault?.kind !== 'memory' || vault?.mounted === false) continue
+    const vaultPath = typeof vault.path === 'string' ? vault.path.trim() : ''
+    if (vaultPath) return vaultPath
+  }
+  return null
+}
+
+/**
+ * Find the mounted memory vault (vaults.json entry with kind "memory").
+ * Returns null when no memory vault is configured or it is unmounted.
+ */
+export function configuredMemoryVaultPath({ configDir } = {}) {
+  const filePath = vaultsJsonPath({ configDir })
+  if (!existsSync(filePath)) return null
+
+  return memoryVaultPathFromList(JSON.parse(readFileSync(filePath, 'utf-8')))
+}
+
+/**
+ * Resolve a target path against a vault root and reject anything that lands
+ * outside the vault (path traversal, absolute paths escaping the root).
+ * Accepts relative or absolute targets; returns the resolved absolute path.
+ */
+export function resolveInsideVault(vaultRoot, targetPath) {
+  const resolved = resolve(vaultRoot, targetPath)
+  const relation = relative(vaultRoot, resolved)
+  if (!relation || relation.startsWith('..') || isAbsolute(relation)) {
+    throw new Error(`Path must stay inside the vault: ${targetPath}`)
+  }
+  return resolved
 }
 
 export function requireVaultPaths(env = process.env, options = {}) {

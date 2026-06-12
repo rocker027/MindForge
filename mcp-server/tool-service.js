@@ -6,10 +6,12 @@ import {
 } from './vault.js'
 import { requireVaultPaths } from './vault-path.js'
 import { readAgentInstructions, vaultContextWithInstructions } from './agent-instructions.js'
+import { createMemoryService } from './memory.js'
 
 export function createMcpToolService({
   resolveVaultPaths = () => requireVaultPaths(),
   emitUiAction = () => {},
+  memoryService = createMemoryService(),
 } = {}) {
   function activeVaultPaths() {
     return resolveVaultPaths()
@@ -52,12 +54,39 @@ export function createMcpToolService({
   async function vaultContext(args = {}) {
     const targetVaultPath = requestedVaultPath(args)
     const roots = activeVaultPaths()
-    if (targetVaultPath) return vaultContextWithInstructions(targetVaultPath)
-    if (roots.length === 1) return vaultContextWithInstructions(roots[0])
+    const memoryVaultPath = memoryVaultPathOrNull()
+    const withInstructions = vaultPath => vaultContextWithInstructions(vaultPath, { memoryVaultPath })
+    if (targetVaultPath) return withInstructions(targetVaultPath)
+    if (roots.length === 1) return withInstructions(roots[0])
 
     return {
-      vaults: await Promise.all(roots.map(vaultContextWithInstructions)),
+      vaults: await Promise.all(roots.map(withInstructions)),
     }
+  }
+
+  function memoryVaultPathOrNull() {
+    try {
+      return memoryService.memoryVaultPath()
+    } catch {
+      // A broken vaults.json must not take vault context down with it.
+      return null
+    }
+  }
+
+  function memoryRecall(args = {}) {
+    return memoryService.recall(args)
+  }
+
+  async function memoryIngest(args = {}) {
+    const result = await memoryService.ingest(args)
+    emitUiAction('vault_changed', { path: result.absolutePath })
+    return result
+  }
+
+  async function memoryLog(args = {}) {
+    const result = await memoryService.log(args)
+    emitUiAction('vault_changed', { path: result.absolutePath })
+    return result
   }
 
   async function listVaults() {
@@ -149,6 +178,9 @@ export function createMcpToolService({
     createNote,
     highlightEditor,
     listVaults,
+    memoryIngest,
+    memoryLog,
+    memoryRecall,
     openNoteAsTab,
     openNoteInEditor,
     readNote,
