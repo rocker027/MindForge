@@ -4,9 +4,12 @@
   "description": "MCP server for Tolaria vault operations",
   "type": "module",
   "main": "index.js",
+  "bin": {
+    "tolaria-mem": "./cli.js"
+  },
   "scripts": {
     "start": "node index.js",
-    "test": "node --test test.js tool-service.test.js memory.test.js"
+    "test": "node --test test.js tool-service.test.js memory.test.js cli.test.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

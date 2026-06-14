@@ -37,8 +37,13 @@ function appConfigBaseDir(env = process.env) {
   return env.XDG_CONFIG_HOME || join(homedir(), '.config')
 }
 
+/** Where vaults.json is written: always the current app namespace. */
+export function preferredVaultsJsonPath({ configDir = appConfigBaseDir() } = {}) {
+  return join(configDir, APP_CONFIG_DIR, 'vaults.json')
+}
+
 export function vaultsJsonPath({ configDir = appConfigBaseDir() } = {}) {
-  const preferred = join(configDir, APP_CONFIG_DIR, 'vaults.json')
+  const preferred = preferredVaultsJsonPath({ configDir })
   if (existsSync(preferred)) return preferred
 
   const legacy = join(configDir, LEGACY_APP_CONFIG_DIR, 'vaults.json')
@@ -70,24 +75,32 @@ export function configuredVaultPaths({ configDir } = {}) {
   return activeVaultPathsFromList(JSON.parse(readFileSync(filePath, 'utf-8')))
 }
 
-function memoryVaultPathFromList(list) {
+function memoryVaultEntryFromList(list) {
   for (const vault of list?.vaults ?? []) {
     if (vault?.kind !== 'memory' || vault?.mounted === false) continue
     const vaultPath = typeof vault.path === 'string' ? vault.path.trim() : ''
-    if (vaultPath) return vaultPath
+    if (vaultPath) return { ...vault, path: vaultPath }
   }
   return null
 }
 
 /**
- * Find the mounted memory vault (vaults.json entry with kind "memory").
+ * Find the mounted memory vault entry (vaults.json entry with kind "memory").
  * Returns null when no memory vault is configured or it is unmounted.
  */
-export function configuredMemoryVaultPath({ configDir } = {}) {
+export function configuredMemoryVaultEntry({ configDir } = {}) {
   const filePath = vaultsJsonPath({ configDir })
   if (!existsSync(filePath)) return null
 
-  return memoryVaultPathFromList(JSON.parse(readFileSync(filePath, 'utf-8')))
+  return memoryVaultEntryFromList(JSON.parse(readFileSync(filePath, 'utf-8')))
+}
+
+/**
+ * Find the mounted memory vault path (vaults.json entry with kind "memory").
+ * Returns null when no memory vault is configured or it is unmounted.
+ */
+export function configuredMemoryVaultPath({ configDir } = {}) {
+  return configuredMemoryVaultEntry({ configDir })?.path ?? null
 }
 
 /**

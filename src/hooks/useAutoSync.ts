@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { isTauri, mockInvoke } from '../mock-tauri'
 import type { GitPullResult, GitPushResult, GitRemoteStatus, LastCommitInfo, SyncStatus } from '../types'
 import { trackEvent } from '../lib/telemetry'
+import { scheduleMemoryIndexRefresh } from '../lib/memoryIndex'
 
 const DEFAULT_INTERVAL_MS = 5 * 60_000
 const AUTO_SYNC_COOLDOWN_MS = 30_000
@@ -530,6 +531,8 @@ export function useAutoSync({
             setConflictVaultPath,
             setSyncStatus,
           })
+          // Keep memory-vault qmd indexes fresh after a successful sync (ADR-0141).
+          scheduleMemoryIndexRefresh()
         }
 
         void refreshRemoteStatus(pullVaultPaths)
@@ -590,6 +593,8 @@ export function useAutoSync({
             setSyncStatus,
           })
         }
+        // Pull succeeded (no conflict/error); refresh memory indexes in the background.
+        scheduleMemoryIndexRefresh()
 
         const pushVaultPaths = pullOutcomes
           .filter((outcome) => outcome.result.status !== 'no_remote')
