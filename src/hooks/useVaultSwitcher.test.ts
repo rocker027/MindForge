@@ -204,6 +204,7 @@ describe('useVaultSwitcher', () => {
         color: null,
         icon: null,
         mounted: true,
+        kind: 'notes',
       }],
       active_vault: '/selected/vault',
       default_workspace_path: '/selected/vault',
@@ -339,6 +340,7 @@ describe('useVaultSwitcher', () => {
       color: null,
       icon: null,
       mounted: true,
+      kind: 'notes',
       available: true,
     }])
     expect(result.current.vaultPath).toBe('/work/vault')
@@ -352,6 +354,7 @@ describe('useVaultSwitcher', () => {
           color: null,
           icon: null,
           mounted: true,
+          kind: 'notes',
         }],
         active_vault: '/work/vault',
         default_workspace_path: '/work/vault',

@@ -78,6 +78,25 @@ export function trackAiFeaturesEnabledChanged(enabled: boolean): void {
   })
 }
 
+export function trackMemoryVaultCreated(params: {
+  gitInitialized: boolean
+  registered: boolean
+}): void {
+  trackEvent('memory_vault_created', {
+    git_initialized: numericFlag(params.gitInitialized),
+    registered: numericFlag(params.registered),
+  })
+}
+
+export function trackMemoryVaultScaffoldFailed(): void {
+  trackEvent('memory_vault_scaffold_failed', { error_kind: 'scaffold_error' })
+}
+
+/** Memory recall ran from the search panel. Records only the hit count — never the query or note content. */
+export function trackMemorySearchUsed(hitCount: number): void {
+  trackEvent('memory_search_used', { hit_count: hitCount })
+}
+
 export function trackGitFeaturesEnabledChanged(enabled: boolean): void {
   trackEvent('git_features_visibility_changed', {
     enabled: numericFlag(enabled),

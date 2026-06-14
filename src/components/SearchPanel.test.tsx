@@ -209,9 +209,20 @@ function dispatchKeyboardEvent(
   fireEvent(target, event)
 }
 
+// Default invoke behavior: qmd absent, no results. Tests override via
+// mockResolvedValue/mockImplementation when they need keyword or memory hits.
+function applyDefaultInvoke() {
+  mockInvokeFn.mockImplementation(async (command: string) => {
+    if (command === 'qmd_status') return { installed: false, version: null }
+    if (command === 'qmd_memory_query') return { available: false, hits: [] }
+    return { results: [], elapsed_ms: 0 }
+  })
+}
+
 describe('SearchPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    applyDefaultInvoke()
   })
 
   it('renders nothing when closed', () => {
@@ -236,12 +247,14 @@ describe('SearchPanel', () => {
     expect(screen.getByText('Enter to open · Esc to close')).toBeInTheDocument()
   })
 
-  it('has no keyword/semantic toggle', () => {
+  it('hides the keyword/memory toggle when qmd is unavailable', async () => {
     render(
       <SearchPanel open={true} vaultPath="/vault" entries={MOCK_ENTRIES} onSelectNote={vi.fn()} onClose={vi.fn()} />,
     )
-    expect(screen.queryByText('Keyword')).not.toBeInTheDocument()
-    expect(screen.queryByText('Semantic')).not.toBeInTheDocument()
+    // qmd_status resolves to installed:false → behaviour identical to before.
+    await waitFor(() => expect(mockInvokeFn).toHaveBeenCalledWith('qmd_status', {}))
+    expect(screen.queryByRole('group')).not.toBeInTheDocument()
+    expect(screen.queryByText('Memory')).not.toBeInTheDocument()
   })
 
   it('calls onClose when clicking overlay', () => {
@@ -540,9 +553,10 @@ describe('SearchPanel', () => {
 
   it('shows loading spinner while searching', async () => {
     const resolvers: ((v: unknown) => void)[] = []
-    mockInvokeFn.mockImplementation(
-      () => new Promise(resolve => { resolvers.push(resolve) }),
-    )
+    mockInvokeFn.mockImplementation((command: string) => {
+      if (command === 'qmd_status') return Promise.resolve({ installed: false, version: null })
+      return new Promise(resolve => { resolvers.push(resolve) })
+    })
 
     render(
       <SearchPanel open={true} vaultPath="/vault" entries={MOCK_ENTRIES} onSelectNote={vi.fn()} onClose={vi.fn()} />,
@@ -623,9 +637,10 @@ describe('SearchPanel', () => {
 
   it('cancels inflight searches when panel closes', async () => {
     const resolvers: ((v: unknown) => void)[] = []
-    mockInvokeFn.mockImplementation(
-      () => new Promise(resolve => { resolvers.push(resolve) }),
-    )
+    mockInvokeFn.mockImplementation((command: string) => {
+      if (command === 'qmd_status') return Promise.resolve({ installed: false, version: null })
+      return new Promise(resolve => { resolvers.push(resolve) })
+    })
 
     const { rerender } = render(
       <SearchPanel open={true} vaultPath="/vault" entries={MOCK_ENTRIES} onSelectNote={vi.fn()} onClose={vi.fn()} />,
@@ -657,5 +672,107 @@ describe('SearchPanel', () => {
     // Should NOT show the stale result — panel was reset
     expect(screen.queryByText('Stale Result')).not.toBeInTheDocument()
     expect(screen.getByText('Search across all note contents')).toBeInTheDocument()
+  })
+
+  describe('memory recall mode', () => {
+    const MEMORY_VAULT = { label: 'Memory', path: '/memory', alias: 'brain', kind: 'memory', mounted: true }
+    const MEMORY_HIT = { path: 'wiki/typescript.md', title: 'TypeScript notes', score: 0.91, snippet: 'Strict mode wins.' }
+
+    function mockMemoryBackend({ installed = true, available = true, hits = [MEMORY_HIT] } = {}) {
+      mockInvokeFn.mockImplementation(async (command: string) => {
+        if (command === 'qmd_status') return { installed, version: installed ? '1.2.3' : null }
+        if (command === 'qmd_memory_query') return { available, hits }
+        return { results: [], elapsed_ms: 0 }
+      })
+    }
+
+    function renderWithMemory(onSelectNote = vi.fn()) {
+      render(
+        <SearchPanel
+          open={true}
+          vaultPath="/vault"
+          entries={MOCK_ENTRIES}
+          vaults={[{ label: 'Notes', path: '/vault', kind: 'notes' }, MEMORY_VAULT]}
+          locale="en"
+          onSelectNote={onSelectNote}
+          onClose={vi.fn()}
+        />,
+      )
+      return { onSelectNote }
+    }
+
+    async function switchToMemoryMode() {
+      const toggle = await screen.findByText('Memory')
+      fireEvent.click(toggle)
+    }
+
+    it('shows the keyword/memory toggle when qmd is installed and a memory vault is mounted', async () => {
+      mockMemoryBackend()
+      renderWithMemory()
+      expect(await screen.findByText('Memory')).toBeInTheDocument()
+      expect(screen.getByText('Keyword')).toBeInTheDocument()
+    })
+
+    it('queries the memory collection and renders hits with title, snippet and score', async () => {
+      mockMemoryBackend()
+      renderWithMemory()
+      await switchToMemoryMode()
+
+      fireEvent.change(screen.getByPlaceholderText('Recall from memory…'), { target: { value: 'typescript' } })
+
+      await waitFor(() => {
+        expect(mockInvokeFn).toHaveBeenCalledWith('qmd_memory_query', {
+          query: 'typescript',
+          collection: 'tolaria-brain',
+          limit: 20,
+        })
+      })
+      expect(await screen.findByText('TypeScript notes')).toBeInTheDocument()
+      expect(screen.getByText('Strict mode wins.')).toBeInTheDocument()
+      expect(screen.getByText('0.91')).toBeInTheDocument()
+    })
+
+    it('opens a memory hit at its absolute path when clicked', async () => {
+      mockMemoryBackend()
+      const { onSelectNote } = renderWithMemory()
+      await switchToMemoryMode()
+
+      fireEvent.change(screen.getByPlaceholderText('Recall from memory…'), { target: { value: 'typescript' } })
+      const hit = await screen.findByText('TypeScript notes')
+      fireEvent.click(hit)
+
+      expect(onSelectNote).toHaveBeenCalledWith(expect.objectContaining({
+        path: '/memory/wiki/typescript.md',
+        title: 'TypeScript notes',
+      }))
+    })
+
+    it('shows an unavailable notice when qmd reports itself unavailable at query time', async () => {
+      mockMemoryBackend({ installed: true, available: false, hits: [] })
+      renderWithMemory()
+      await switchToMemoryMode()
+
+      fireEvent.change(screen.getByPlaceholderText('Recall from memory…'), { target: { value: 'typescript' } })
+
+      expect(await screen.findByText('Semantic search unavailable')).toBeInTheDocument()
+    })
+
+    it('hides the toggle and stays keyword-only when no memory vault is mounted', async () => {
+      mockMemoryBackend({ installed: true })
+      render(
+        <SearchPanel
+          open={true}
+          vaultPath="/vault"
+          entries={MOCK_ENTRIES}
+          vaults={[{ label: 'Notes', path: '/vault', kind: 'notes' }]}
+          locale="en"
+          onSelectNote={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      )
+      await waitFor(() => expect(mockInvokeFn).toHaveBeenCalledWith('qmd_status', {}))
+      expect(screen.queryByText('Memory')).not.toBeInTheDocument()
+      expect(screen.getByPlaceholderText('Search in all notes...')).toBeInTheDocument()
+    })
   })
 })

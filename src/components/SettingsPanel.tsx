@@ -61,6 +61,7 @@ import {
 import { SettingsFooter } from './SettingsFooter'
 import { VaultContentSettingsSection } from './VaultContentSettingsSection'
 import { WorkspaceSettingsSection } from './WorkspaceSettingsSection'
+import { MemoryVaultSetup } from './memory/MemoryVaultSetup'
 import {
   resolveAllNotesFileVisibility,
   settingsWithAllNotesFileVisibility,
@@ -661,6 +662,9 @@ function SettingsSyncAndAppearanceSections({
           {...{ onRemoveVault, onReorderVaults, onSetDefaultWorkspace, onUpdateWorkspaceIdentity }}
           vaults={vaults}
         />
+      </SettingsSection>
+      <SettingsSection id={SETTINGS_SECTION_IDS.memory}>
+        <MemoryVaultSetup locale={locale} vaults={vaults} />
       </SettingsSection>
       <SettingsSection id={SETTINGS_SECTION_IDS.autogit}>
         <GitSettingsSection

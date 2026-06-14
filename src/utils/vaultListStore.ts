@@ -2,6 +2,9 @@ import { invoke } from '@tauri-apps/api/core'
 import { isTauri, mockInvoke } from '../mock-tauri'
 import type { VaultOption } from '../components/StatusBar'
 
+/** Default workspace kind for legacy `vaults.json` entries without a `kind` field. */
+const DEFAULT_VAULT_KIND = 'notes'
+
 export interface PersistedVaultList {
   vaults: Array<{
     label: string
@@ -11,6 +14,7 @@ export interface PersistedVaultList {
     color?: string | null
     icon?: string | null
     mounted?: boolean | null
+    kind?: string | null
   }>
   active_vault: string | null
   default_workspace_path?: string | null
@@ -26,6 +30,7 @@ function persistedVaultOption(v: PersistedVaultList['vaults'][number]): VaultOpt
     color: v.color ?? null,
     icon: v.icon ?? null,
     mounted: v.mounted !== false,
+    kind: v.kind ?? DEFAULT_VAULT_KIND,
   }
 }
 
@@ -75,6 +80,7 @@ export function saveVaultList(
       color: v.color ?? null,
       icon: v.icon ?? null,
       mounted: v.mounted !== false,
+      kind: v.kind ?? DEFAULT_VAULT_KIND,
     })),
     active_vault: activeVault,
     default_workspace_path: defaultWorkspacePath,

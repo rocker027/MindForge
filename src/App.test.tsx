@@ -1008,6 +1008,7 @@ describe('App', () => {
             color: null,
             icon: null,
             mounted: true,
+            kind: 'notes',
           }],
           active_vault: selectedVaultPath,
           default_workspace_path: selectedVaultPath,
