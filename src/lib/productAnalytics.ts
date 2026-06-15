@@ -113,6 +113,22 @@ export function trackMemorySearchUsed(hitCount: number): void {
   trackEvent('memory_search_used', { hit_count: hitCount })
 }
 
+/**
+ * The user triggered an inbox ingest run from the Memory Vault settings.
+ * Records only how many sources were pending — never file names, paths, or content.
+ */
+export function trackMemoryInboxIngestStarted(sourceCount: number): void {
+  trackEvent('memory_inbox_ingest_started', { source_count: sourceCount })
+}
+
+/**
+ * The user triggered a wiki lint run from the Memory Vault settings.
+ * Records only that a run started — never the report body, paths, or content.
+ */
+export function trackMemoryLintStarted(): void {
+  trackEvent('memory_lint_started', {})
+}
+
 export function trackGitFeaturesEnabledChanged(enabled: boolean): void {
   trackEvent('git_features_visibility_changed', {
     enabled: numericFlag(enabled),

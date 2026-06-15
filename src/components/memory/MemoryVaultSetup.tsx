@@ -14,7 +14,9 @@ import {
   type MemoryVaultScaffoldReport,
   type QmdStatusReport,
 } from './memoryVaultApi'
+import { MemoryInbox } from './MemoryInbox'
 import { MemoryIntegrationGuide } from './MemoryIntegrationGuide'
+import { MemoryLint } from './MemoryLint'
 import { MemoryVaultCreateForm } from './MemoryVaultCreateForm'
 import { MemoryVaultExisting } from './MemoryVaultExisting'
 import { IndexingNotice, QmdStatusBlock, ScaffoldSummary } from './MemoryVaultStatusBlocks'
@@ -115,6 +117,8 @@ export function MemoryVaultSetup({
         <>
           <MemoryVaultExisting t={t} vault={existingVault} qmdStatus={qmdStatus} />
           <MemoryIntegrationGuide locale={locale} vault={existingVault} />
+          <MemoryInbox locale={locale} vault={existingVault} />
+          <MemoryLint locale={locale} vault={existingVault} />
         </>
       ) : (
         <MemoryVaultCreateBody
