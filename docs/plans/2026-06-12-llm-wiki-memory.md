@@ -1,8 +1,27 @@
 # LLM Wiki 跨工具記憶系統重構計畫
 
 > 日期：2026-06-12
-> 狀態：草案（待使用者確認關鍵決策後動工）
+> 狀態：Phase 0–4 程式碼全部完成並推送 `origin/main`（6 commits，至 `402b3e92`，2026-06-15）；剩餘待辦見下節
 > 參考：[Karpathy LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)、[tobi/qmd](https://github.com/tobi/qmd)
+
+---
+
+## 🚧 進度與剩餘待辦（2026-06-15 盤點）
+
+**程式碼**：Phase 0 → 4 全部 Task（0.1–4.2）已實作並推送 `origin/main`，工作樹乾淨、與遠端同步。本地 CLI 端到端 smoke（scaffold / ingest / recall / log / 降級 / 冪等）通過。
+
+**剩餘待辦：**
+
+1. **l10n 翻譯（release gate，現為 FAIL）** — 使用者 2026-06-15 決定「暫時接受、記為待辦」。
+   - 缺漏：本次新增 70 個文案 key（`memoryVault.*` 59、`memorySearch.*` 11）僅存在 `en.json`，19 種目標語言全缺；`pnpm l10n:validate` 失敗。
+   - 卡點：`LARA_ACCESS_KEY` 未設定，`pnpm l10n:translate` 無法執行。
+   - 補法：設定 `LARA_ACCESS_KEY` → `pnpm l10n:translate` → `pnpm l10n:validate` 通過 → commit 翻譯檔。
+   - 現況可用性：`en` 完整；其餘語言 fallback 到 `en`，不影響功能。
+
+2. **staging／真實環境 QA（計畫第二批，local 無法證明）：**
+   - 跨工具召回實機驗證（Claude Code / Codex / Cursor / OpenCode）＋ Antigravity 檔案系統路徑（Task 0.2、3.2）。
+   - GUI 點 ingest／lint 觸發**真實 CLI agent** ＋ Playwright ＋ 原生截圖 QA（Task 4.1、4.2）。
+   - qmd 語義搜尋：需安裝 `qmd` binary（目前僅驗證 qmd 缺席時的關鍵字降級路徑）。
 
 ---
 
