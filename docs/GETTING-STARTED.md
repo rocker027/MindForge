@@ -94,6 +94,10 @@ The selected/default vault remains the write target for new notes and Type docum
 
 The bottom-left `VaultMenu` exposes quick include/exclude controls and a `Manage vaults` entry. The Vaults settings section owns the full identity controls: display name, short label, read-only alias, accent color, removal, and default destination for new notes.
 
+## Memory Vault (LLM Wiki)
+
+A memory vault is a `kind: "memory"` workspace — a plain git repo with a `raw/` + `wiki/` + `AGENTS.md` structure (ADR-0140) that any AI tool can share as cross-device memory. Create one from **Settings → Memory Vault** (it scaffolds the template, runs `git init`, and mounts the vault). Semantic recall is optional and powered by the external `qmd` CLI (`npm install -g @tobilu/qmd`); without it, search falls back to keywords. The same settings section exposes per-tool integration commands, a `raw/inbox/` ingest runner, and a wiki lint pass. Key frontend files live in `src/components/memory/` and `src/components/search/`; the cross-tool command line is `mcp-server/cli.js` (`tolaria-mem`).
+
 ## Directory Structure
 
 ```

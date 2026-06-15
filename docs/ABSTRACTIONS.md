@@ -572,6 +572,26 @@ External vault mutations are any disk writes Tolaria did not just perform throug
 - **Git status popup**: Click sync badge → shows aggregate ahead/behind and a Pull button for the active repository set
 - **Conflict banner**: Inline banner in editor with Keep mine / Keep theirs for conflicted notes
 
+## Memory Vault (LLM Wiki)
+
+A memory vault is a workspace with `kind: "memory"` (ADR-0140): an ordinary git repository any AI tool can read and write, structured as `raw/` (immutable source captures, including a `raw/inbox/` queue), `wiki/` (LLM-maintained pages plus `index.md` and an append-only `log.md`), and a root `AGENTS.md` that defines the ingest / query / lint protocol — the single source of truth every tool follows. Markdown on disk is always authoritative; retrieval indexes are disposable caches.
+
+Semantic recall is provided by **qmd**, an optional external CLI (ADR-0141, partially superseding the keyword-only ADR-0009). Tolaria registers a mounted memory vault as a qmd collection named `tolaria-<alias>` (or `tolaria-memory` when the vault has no alias — the convention lives only in `src/lib/memoryIndex.ts::getMemoryCollectionAlias`). When qmd is absent every surface degrades to keyword search; qmd is never bundled and its absence is never an error. `useAutoSync` debounces a background `qmd update` after each successful pull/push so the index stays fresh without blocking the UI.
+
+Cross-tool access follows three paths (ADR-0142): the filesystem schema (`AGENTS.md`) for any tool, qmd CLI / `qmd mcp` for semantic recall, and Tolaria's MCP `memory_recall` / `memory_ingest` / `memory_log` tools plus the `tolaria-mem` CLI for tools driven outside the GUI.
+
+The Memory Vault settings section surfaces the feature once a `kind: "memory"` vault is mounted:
+
+| Surface | Component | Behavior |
+|---------|-----------|----------|
+| Onboarding | `MemoryVaultSetup` | Idempotent scaffold via `scaffold_memory_vault`, then vault status + qmd availability |
+| Search recall | `SearchPanel` (`useMemorySearchPanel`) | A Keyword/Memory toggle appears only when qmd is installed *and* a memory vault is mounted; otherwise the panel is byte-for-byte the keyword-only experience |
+| Integration guide | `MemoryIntegrationGuide` | Read-only, copyable qmd registration command + `AGENTS.md` path per external tool (Claude Code, Codex, Cursor, OpenCode, Antigravity) |
+| Inbox ingest | `MemoryInbox` | Lists `raw/inbox/` sources (composed from `reload_vault`) and runs an "Ingest all" pass through the CLI-agent streaming flow, following the vault's `## Ingest workflow` |
+| Lint | `MemoryLint` | Runs the vault's `## Lint workflow`, then renders the agent-written `wiki/lint-report.md` with the shared `MarkdownContent` renderer |
+
+Inbox and Lint reuse the existing `streamAiAgent` flow (the agent runs inside the vault root with `power_user` permission) instead of adding new Rust commands; the actual ingest/lint behavior is defined by the vault's `AGENTS.md`, never duplicated in the UI.
+
 ## BlockNote Customization
 
 The editor uses [BlockNote](https://www.blocknotejs.org/) for rich text editing, with CodeMirror 6 available as a raw editing alternative.
