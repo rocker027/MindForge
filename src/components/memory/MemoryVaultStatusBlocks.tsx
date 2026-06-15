@@ -34,15 +34,28 @@ export function QmdStatusBlock({ t, status }: { t: Translate; status: QmdStatusR
 }
 
 /** Read-only command line with a copy-to-clipboard affordance. */
-export function CommandSnippet({ t, command }: { t: Translate; command: string }) {
+export function CommandSnippet({
+  t,
+  command,
+  onCopy,
+  testId = 'memory-vault-copy-command',
+}: {
+  t: Translate
+  command: string
+  /** Optional side effect (e.g. analytics) fired after a successful copy. */
+  onCopy?: () => void
+  /** Override the copy button test id when several snippets share a screen. */
+  testId?: string
+}) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = useCallback(() => {
     void navigator.clipboard?.writeText(command).then(() => {
       setCopied(true)
+      onCopy?.()
       window.setTimeout(() => setCopied(false), 1500)
     })
-  }, [command])
+  }, [command, onCopy])
 
   return (
     <div className="mt-2 flex items-center gap-2">
@@ -55,7 +68,7 @@ export function CommandSnippet({ t, command }: { t: Translate; command: string }
         size="icon-sm"
         onClick={handleCopy}
         aria-label={copied ? t('memoryVault.copied') : t('memoryVault.copyCommand')}
-        data-testid="memory-vault-copy-command"
+        data-testid={testId}
       >
         {copied ? <Check size={14} /> : <Copy size={14} />}
       </Button>

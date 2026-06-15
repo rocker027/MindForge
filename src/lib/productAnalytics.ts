@@ -14,6 +14,14 @@ type AiWorkspaceMode = 'docked' | 'side' | 'window'
 type AiWorkspaceTitleSource = 'generated' | 'manual'
 type NotePdfExportFailureReason = 'export_unavailable' | 'export_error'
 type NotePdfExportSource = 'breadcrumb' | 'app_command' | 'note_list_context_menu'
+type MemoryIntegrationTarget =
+  | 'qmd'
+  | 'schema'
+  | 'claude_code'
+  | 'codex'
+  | 'cursor'
+  | 'opencode'
+  | 'antigravity'
 
 const ALL_NOTES_VISIBILITY_CATEGORIES: ReadonlyArray<keyof AllNotesFileVisibility> = [
   'pdfs',
@@ -90,6 +98,14 @@ export function trackMemoryVaultCreated(params: {
 
 export function trackMemoryVaultScaffoldFailed(): void {
   trackEvent('memory_vault_scaffold_failed', { error_kind: 'scaffold_error' })
+}
+
+/**
+ * A user copied a connect-an-AI-tool command or path from the integration guide.
+ * Records only which target was copied — never the vault path or command body.
+ */
+export function trackMemoryIntegrationCommandCopied(target: MemoryIntegrationTarget): void {
+  trackEvent('memory_integration_command_copied', { target })
 }
 
 /** Memory recall ran from the search panel. Records only the hit count — never the query or note content. */
